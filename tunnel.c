@@ -57,8 +57,8 @@ int tunnel_init(const char *address) {
     return 0;
 }
 
-int tunnel_send(const unsigned char *str) {
-    int ret = snd_midi_event_encode(midi_event, str, sizeof(str) - 1, &ev);
+int tunnel_send(const unsigned char *buf, int size) {
+    int ret = snd_midi_event_encode(midi_event, buf, size, &ev);
     if (ret < 0) {
 		printf("error encoding midi event\n");
         return ret;
