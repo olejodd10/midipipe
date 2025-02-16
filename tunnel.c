@@ -1,3 +1,5 @@
+#include "tunnel.h"
+
 #include <alsa/asoundlib.h>
 
 #define TUNNEL_SEQ_STREAM_TYPE (SND_SEQ_OPEN_OUTPUT)
@@ -57,14 +59,30 @@ int tunnel_init(const char *address) {
     return 0;
 }
 
-int tunnel_send(const unsigned char *buf, int size) {
-    int ret = snd_midi_event_encode(midi_event, buf, size, &ev);
-    if (ret < 0) {
-		printf("error encoding midi event\n");
-        return ret;
+int tunnel_read(snd_seq_event_t *ev) {
+    while (1) {
+        int ret = getchar();
+        if (ret < 0) {
+            printf("error reading byte\n");
+            return ret;
+        } else {
+            char c = (unsigned char)ret;
+            ret = snd_midi_event_encode_byte(midi_event, c, ev);
+            if (ret < 0) {
+                printf("error encoding byte\n");
+                snd_midi_event_reset_encode(midi_event);
+                return ret;
+            } else if (ret == 1) {
+                // Event has been completely encoded
+                return 0;
+            }
+        }
     }
-    snd_seq_ev_set_source(&ev, src_port);
-    snd_seq_ev_set_subs(&ev); // Send to all subscribers. Essentially this allows extra clients to listen
-    snd_seq_ev_set_direct(&ev); // No queueing. Necessary even if using snd_seq_event_output_direct. Queueing =/= output buffering?
-    return snd_seq_event_output_direct(seq_handle, &ev);
+}
+
+int tunnel_send(snd_seq_event_t *ev) {
+    snd_seq_ev_set_source(ev, src_port);
+    snd_seq_ev_set_subs(ev); // Send to all subscribers. Essentially this allows extra clients to listen
+    snd_seq_ev_set_direct(ev); // No queueing. Necessary even if using snd_seq_event_output_direct. Queueing =/= output buffering?
+    return snd_seq_event_output_direct(seq_handle, ev);
 }
